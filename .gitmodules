@@ -1,0 +1,3 @@
+[submodule "lib/sgbc-api-examples"]
+	path = lib/sgbc-api-examples
+	url = git@github.com:JoepLinssen/sbgc-api-examples.git
