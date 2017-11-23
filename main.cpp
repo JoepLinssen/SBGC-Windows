@@ -3,9 +3,8 @@
 #include <Windows.h>
 
 class WindowsComObj : public SBGC_ComObj {
-public:
 	HANDLE hComm; //Serial port handle
-
+public:
 	int init() { //TODO fix variable port number]
 		//Open port
 		hComm = CreateFile(TEXT("\\\\.\\COM15"),
@@ -64,6 +63,11 @@ public:
 		return out;
 	}
 
+	// Read message from input system
+	uint8_t readMessage(BYTE *buf, DWORD szBuf, DWORD *numRead) {
+		return ::ReadFile(hComm, buf, szBuf, numRead, NULL);
+	}
+
 	// Write byte to the output stream
 	virtual void writeByte(uint8_t b) {
 		DWORD numWritten = 0;
@@ -104,13 +108,49 @@ int main() {
 	BYTE out[255];
 	memset(&out, 0, sizeof(out));
 	DWORD numRead = 0;
-	if(!::ReadFile(com.hComm, &out, sizeof(out), &numRead, NULL)) {
+	if(!com.readMessage(out, sizeof(out), &numRead)) {
 		std::cout << "Could not read from commport. Error " << GetLastError() << std::endl;
 		return 0;
-	} 
-	std::cout << "Read bytes from port!  ";
-	std::cout << "numRead: " << numRead << std::endl;
+	}
+	std::cout << "Read " << numRead << " bytes from commport" << std::endl;
 	for (int i = 0; i < numRead; i++) {
 		printf("%i ", out[i]);
 	} printf("\n");
+
+	//Parse received message
+	std::cout << "Parsing message... ";
+	if(!sbgc_parser.parse_message(out, sizeof(out))) {
+		std::cout << "Failed." << std::endl;
+		return 0;
+	}
+	std::cout << "Success!" << std::endl;
+
+	//Unpack 
+	SBGC_cmd_realtime_old_t rt_data;
+
+	std::cout << "Unpacking... ";
+	SerialCommand rec_cmd = sbgc_parser.in_cmd;
+	switch(rec_cmd.id) {
+	case SBGC_CMD_REALTIME_DATA: {
+		std::cout << "ID: REALTIME_DATA... ";
+		uint8_t r = SBGC_cmd_realtime_old_unpack(rt_data, rec_cmd);
+		if(r == 0) {
+			std::cout << "Unpacked!!" << std::endl;
+		} else {
+			std::cout << "Error. Code: " << r << std::endl;
+			return 0;
+		}
+		break;
+	}
+	default: {
+		std::cout << "Unknown message ID! (" << rec_cmd.id << ")" << std::endl;
+		return 0; 
+		break;
+	}
+	}
+
+	std::cout << "Camera euler angles! r: " << SBGC_DEGREE_ANGLE_SCALE*rt_data.imu_angle[0] 
+								  << " p: " << SBGC_DEGREE_ANGLE_SCALE*rt_data.imu_angle[1] 
+								  << " y: " << SBGC_DEGREE_ANGLE_SCALE*rt_data.imu_angle[2] << std::endl;
+
 }
