@@ -3,8 +3,9 @@
 #include <Windows.h>
 
 class WindowsComObj : public SBGC_ComObj {
-	HANDLE hComm; //Serial port handle
 public:
+	HANDLE hComm; //Serial port handle
+
 	int init() { //TODO fix variable port number]
 		//Open port
 		hComm = CreateFile(TEXT("\\\\.\\COM15"),
@@ -12,7 +13,7 @@ public:
 			0,
 			NULL,
 			OPEN_EXISTING,
-			FILE_FLAG_OVERLAPPED,
+			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_NO_BUFFERING,
 			NULL);
 
 		if(hComm == INVALID_HANDLE_VALUE) {
@@ -94,14 +95,22 @@ int main() {
 
 	//Request real time data
 	SerialCommand cmd;
-	cmd.init(SBGC_CMD_REALTIME_DATA_3);
+	cmd.init(SBGC_CMD_REALTIME_DATA);
 	sbgc_parser.send_cmd(cmd, 0);
-
 	std::cout << "Data request written to port!" << std::endl;
+	::Sleep(20);
 
-	//Decode incoming data
-	if(sbgc_parser.read_cmd()) {
-		SerialCommand &cmd = sbgc_parser.in_cmd;
-		std::cout << "Received command with ID: " << cmd.id << std::endl;
-	}
+	//Retrieve received data
+	BYTE out[255];
+	memset(&out, 0, sizeof(out));
+	DWORD numRead = 0;
+	if(!::ReadFile(com.hComm, &out, sizeof(out), &numRead, NULL)) {
+		std::cout << "Could not read from commport. Error " << GetLastError() << std::endl;
+		return 0;
+	} 
+	std::cout << "Read bytes from port!  ";
+	std::cout << "numRead: " << numRead << std::endl;
+	for (int i = 0; i < numRead; i++) {
+		printf("%i ", out[i]);
+	} printf("\n");
 }
