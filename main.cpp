@@ -3,13 +3,14 @@
 #include <Windows.h>
 #include <stdlib.h>
 #include <ctime>
+#include <string>
 
 class WindowsComObj : public SBGC_ComObj {
 	HANDLE hComm; //Serial port handle
 public:
-	int init() { //TODO fix variable port number]
+	int init(std::string port_total) { 
 		//Open port
-		hComm = CreateFile(TEXT("\\\\.\\COM15"),
+		hComm = CreateFile(TEXT(port_total.c_str()),
 			GENERIC_READ | GENERIC_WRITE,
 			0,
 			NULL,
@@ -84,12 +85,16 @@ public:
 
 
 int main() {
+	/* Specify port name here! */
+	std::string port_name = "COM15";
+	std::string port_preface = "\\\\.\\"; //ONLY USE THIS PREFACE IF PORT NUMBER > 10
+	std::string port_total = port_preface + port_name;
 	
 	SBGC_Parser sbgc_parser;
 	WindowsComObj com;
 
 	//Initialize connection
-	if(!com.init()) {
+	if(!com.init(port_total)) {
 		DWORD dw = GetLastError();
 		std::cout << "Communication initialization failed. Error " << dw << std::endl;
 		return 0;
