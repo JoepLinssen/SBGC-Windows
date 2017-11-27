@@ -2,6 +2,7 @@
 #include <SBGC.h>
 #include <Windows.h>
 #include <stdlib.h>
+#include <ctime>
 
 class WindowsComObj : public SBGC_ComObj {
 	HANDLE hComm; //Serial port handle
@@ -97,12 +98,14 @@ int main() {
 
 	uint16_t loopitr = 0;
 	uint16_t loopmax = 200;
+	clock_t t_start = clock();
+	clock_t t_now;
 	while(loopitr < loopmax) {
 		//Request real time data
 		SerialCommand cmd;
 		cmd.init(SBGC_CMD_REALTIME_DATA);
 		sbgc_parser.send_cmd(cmd, 0);
-		::Sleep(10);
+		//::Sleep(10);
 
 		//Retrieve received data
 		BYTE out[255];
@@ -144,12 +147,15 @@ int main() {
 		}
 
 		system("CLS");
-		printf("t: %2.2f, r: %3.3f, p: %3.3f, y: %3.3f", ((float)loopitr)*0.02f, 
-														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[0]), 
-														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[1]),
-														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[2]));
+		t_now = clock();
+		printf("t: %2.4f, r: %3.3f, p: %3.3f, y: %3.3f\n", (double)(t_now - t_start) / CLOCKS_PER_SEC,
+														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[0])*5, 
+														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[1])*5,
+														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[2])*5);
 
 		loopitr++;
 	}
+
+	std::cout << "Finished! Average computation time per loop: " << (double)(t_now - t_start) / CLOCKS_PER_SEC / (double)loopmax << std::endl;
 
 }
