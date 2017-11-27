@@ -1,6 +1,7 @@
 #include <iostream>
 #include <SBGC.h>
 #include <Windows.h>
+#include <stdlib.h>
 
 class WindowsComObj : public SBGC_ComObj {
 	HANDLE hComm; //Serial port handle
@@ -91,66 +92,64 @@ int main() {
 		DWORD dw = GetLastError();
 		std::cout << "Communication initialization failed. Error " << dw << std::endl;
 		return 0;
-	} else {
-		std::cout << "Succesfully initialized communication!" << std::endl;
 	}
-
 	sbgc_parser.init(&com);
 
-	//Request real time data
-	SerialCommand cmd;
-	cmd.init(SBGC_CMD_REALTIME_DATA);
-	sbgc_parser.send_cmd(cmd, 0);
-	std::cout << "Data request written to port!" << std::endl;
-	::Sleep(20);
+	uint16_t loopitr = 0;
+	uint16_t loopmax = 200;
+	while(loopitr < loopmax) {
+		//Request real time data
+		SerialCommand cmd;
+		cmd.init(SBGC_CMD_REALTIME_DATA);
+		sbgc_parser.send_cmd(cmd, 0);
+		::Sleep(10);
 
-	//Retrieve received data
-	BYTE out[255];
-	memset(&out, 0, sizeof(out));
-	DWORD numRead = 0;
-	if(!com.readMessage(out, sizeof(out), &numRead)) {
-		std::cout << "Could not read from commport. Error " << GetLastError() << std::endl;
-		return 0;
-	}
-	std::cout << "Read " << numRead << " bytes from commport" << std::endl;
-	for (int i = 0; i < numRead; i++) {
-		printf("%i ", out[i]);
-	} printf("\n");
-
-	//Parse received message
-	std::cout << "Parsing message... ";
-	if(!sbgc_parser.parse_message(out, sizeof(out))) {
-		std::cout << "Failed." << std::endl;
-		return 0;
-	}
-	std::cout << "Success!" << std::endl;
-
-	//Unpack 
-	SBGC_cmd_realtime_old_t rt_data;
-
-	std::cout << "Unpacking... ";
-	SerialCommand rec_cmd = sbgc_parser.in_cmd;
-	switch(rec_cmd.id) {
-	case SBGC_CMD_REALTIME_DATA: {
-		std::cout << "ID: REALTIME_DATA... ";
-		uint8_t r = SBGC_cmd_realtime_old_unpack(rt_data, rec_cmd);
-		if(r == 0) {
-			std::cout << "Unpacked!!" << std::endl;
-		} else {
-			std::cout << "Error. Code: " << r << std::endl;
+		//Retrieve received data
+		BYTE out[255];
+		memset(&out, 0, sizeof(out));
+		DWORD numRead = 0;
+		if(!com.readMessage(out, sizeof(out), &numRead)) {
+			std::cout << "Could not read from commport. Error " << GetLastError() << std::endl;
 			return 0;
 		}
-		break;
-	}
-	default: {
-		std::cout << "Unknown message ID! (" << rec_cmd.id << ")" << std::endl;
-		return 0; 
-		break;
-	}
-	}
+		/*std::cout << "Read " << numRead << " bytes from commport" << std::endl;
+		for (int i = 0; i < numRead; i++) {
+			printf("%i ", out[i]);
+		} printf("\n");*/
 
-	std::cout << "Camera euler angles! r: " << SBGC_DEGREE_ANGLE_SCALE*rt_data.imu_angle[0] 
-								  << " p: " << SBGC_DEGREE_ANGLE_SCALE*rt_data.imu_angle[1] 
-								  << " y: " << SBGC_DEGREE_ANGLE_SCALE*rt_data.imu_angle[2] << std::endl;
+		//Parse received message
+		if(!sbgc_parser.parse_message(out, sizeof(out))) {
+			std::cout << "Failed to parse message." << std::endl;
+			return 0;
+		}
+
+		//Unpack 
+		SBGC_cmd_realtime_old_t rt_data;
+
+		SerialCommand rec_cmd = sbgc_parser.in_cmd;
+		switch(rec_cmd.id) {
+		case SBGC_CMD_REALTIME_DATA: {
+			uint8_t r = SBGC_cmd_realtime_old_unpack(rt_data, rec_cmd);
+			if(r != 0) {
+				std::cout << "Failed to unpack messge. Error: " << r << std::endl;
+				return 0;
+			}
+			break;
+		}
+		default: {
+			std::cout << "Failed to unpack message. Unknown message ID! (" << rec_cmd.id << ")" << std::endl;
+			return 0; 
+			break;
+		}
+		}
+
+		system("CLS");
+		printf("t: %2.2f, r: %3.3f, p: %3.3f, y: %3.3f", ((float)loopitr)*0.02f, 
+														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[0]), 
+														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[1]),
+														 SBGC_ANGLE_TO_DEGREE(rt_data.imu_angle[2]));
+
+		loopitr++;
+	}
 
 }
